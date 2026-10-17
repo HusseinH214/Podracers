@@ -43,8 +43,23 @@ export class Race {
     this.standings = [...this.pods];
     this.result = null;
     this.contactCooldown = new Map();
+    this.ghostPairs = new Set();
     this.events.length = 0;
     this.lastTick = Math.ceil(this.countdown) + 1;
+  }
+
+  /** Start-of-race grace: pods pass through each other so the pack doesn't pinball. */
+  get startGrace() {
+    return this.state === 'racing' && this.time < CONTACT.startGrace;
+  }
+
+  /** True while this pod is passing through others (start grace, or still overlapping after it). */
+  isGhost(pod) {
+    if (this.startGrace) return true;
+    for (const key of this.ghostPairs) {
+      if (key >> 3 === pod.id || (key & 7) === pod.id) return true;
+    }
+    return false;
   }
 
   get playerRank() {
@@ -134,6 +149,7 @@ export class Race {
   }
 
   #podContacts() {
+    const grace = this.startGrace;
     const pods = this.pods;
     for (const [key, t] of this.contactCooldown) {
       if (t - DT <= 0) this.contactCooldown.delete(key);
@@ -146,13 +162,20 @@ export class Race {
         const ds = Math.abs(a.s - b.s);
         const dx = b.x - a.x;
         const minX = POD.halfWidth * 2 * 0.9;
-        if (ds >= POD.halfLength * 2 || Math.abs(dx) >= minX) continue;
+        const key = a.id * 8 + b.id;
+        if (ds >= POD.halfLength * 2 || Math.abs(dx) >= minX) {
+          this.ghostPairs.delete(key);
+          continue;
+        }
+        // Start grace: overlapping pairs pass through each other, and stay ghosted
+        // after the grace ends until they've drifted apart.
+        if (grace) this.ghostPairs.add(key);
+        if (this.ghostPairs.has(key)) continue;
         // Separate them sideways.
         const dir = dx === 0 ? (a.id < b.id ? 1 : -1) : Math.sign(dx);
         const overlap = minX - Math.abs(dx);
         a.x -= (dir * overlap) / 2;
         b.x += (dir * overlap) / 2;
-        const key = a.id * 8 + b.id;
         if (this.contactCooldown.has(key)) continue;
         this.contactCooldown.set(key, CONTACT.cooldown);
         a.vx = -dir * CONTACT.push;

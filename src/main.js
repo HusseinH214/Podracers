@@ -1,6 +1,6 @@
 import './style.css';
 import * as THREE from 'three';
-import { DT, POD, CAMERA, RACE, STUN } from './config.js';
+import { DT, POD, CAMERA, RACE, STUN, NAME_TAG } from './config.js';
 import { Track } from './track.js';
 import { Race } from './race.js';
 import { buildWorld, trackBasis, PALETTE } from './world.js';
@@ -341,8 +341,16 @@ function updatePods(alpha) {
       pitch = w * 0.3;
     }
     v.body.rotation.set(pitch, yaw, roll, 'YXZ');
-    // Blink while invulnerable after a stun.
-    v.body.visible = !(p.invuln > 0 && Math.floor(clock * 14) % 2);
+    // Blink while invulnerable after a stun, or while ghosting through the start grace.
+    v.body.visible = !((p.invuln > 0 || race.isGhost(p)) && Math.floor(clock * 14) % 2);
+
+    // Fade bot name tags out up close so they don't block the player's view.
+    if (v.tag) {
+      const d = mode === 'title' ? Infinity : v.root.position.distanceTo(camera.position);
+      const k = THREE.MathUtils.smoothstep(d, NAME_TAG.hideWithin, NAME_TAG.showBeyond);
+      v.tag.material.opacity = k;
+      v.tag.visible = k > 0;
+    }
 
     const speedNorm = p.speed / POD.cruiseSpeed;
     for (const f of v.flames) {

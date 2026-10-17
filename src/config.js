@@ -42,6 +42,7 @@ export const CONTACT = {
   speedFactor: 0.96, // both pods lose a little speed
   cooldown: 0.35, // per pair, so one bump isn't counted every frame
   stuns: false, // open question decided: pod-to-pod contact never stuns
+  startGrace: 5, // seconds after GO where pods pass through each other (ends before the first rocks)
 };
 
 export const RUBBER_BAND = {
@@ -86,6 +87,13 @@ export const BOTS = [
 ];
 
 export const PLAYER_COLOR = 0xf2b33d;
+
+// Bot name tags fade out as their pod nears the camera so they don't cover the
+// view. Distances are camera-to-pod; the camera sits ~10 m behind the player.
+export const NAME_TAG = {
+  hideWithin: 16, // fully hidden this close (a bot alongside or just ahead of you)
+  showBeyond: 26, // fully shown this far out
+};
 
 export const CAMERA = {
   behind: 9.5,
