@@ -270,9 +270,14 @@ function handleEvents() {
 
 // ---- layout ------------------------------------------------------------------
 
+let viewW = 0;
+let viewH = 0;
 function resize() {
   const w = app.clientWidth;
   const h = app.clientHeight;
+  if (!w || !h) return;
+  viewW = w;
+  viewH = h;
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
@@ -280,6 +285,13 @@ function resize() {
 window.addEventListener('resize', resize);
 window.visualViewport?.addEventListener('resize', resize);
 resize();
+
+// iOS Safari fires 'resize' before the rotated layout settles, so the handler can
+// read stale (portrait) dimensions and CSS then stretches the canvas. Re-check the
+// laid-out size every frame and resize whenever it differs.
+function syncSize() {
+  if (app.clientWidth !== viewW || app.clientHeight !== viewH) resize();
+}
 
 // ---- per-frame visuals ---------------------------------------------------------
 
@@ -414,6 +426,7 @@ function frame(now) {
   audio.engine(p.speed / POD.cruiseSpeed, running, p.stunned);
   audio.scrape(running && p.wallContact !== 0 && p.speed > 8);
 
+  syncSize();
   renderer.render(scene, camera);
 }
 
