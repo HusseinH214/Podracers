@@ -26,6 +26,9 @@ body {
   background: #1a0f0a;
   color: var(--ink);
   overscroll-behavior: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 #app {

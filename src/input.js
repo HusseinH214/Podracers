@@ -28,7 +28,13 @@ export class Input {
     for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) {
       zone.addEventListener(ev, release);
     }
-    zone.addEventListener('contextmenu', (e) => e.preventDefault());
+    // Cancelling pointerdown doesn't stop the browser's own long-press gesture
+    // (haptic buzz, text selection, "Search / Find in page" bar), which runs off
+    // touch events. Cancel touchstart too; the zone has no click handlers to lose.
+    zone.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });
+    // Belt and braces for the rest of the page: the game has no selectable text.
+    document.addEventListener('contextmenu', (e) => e.preventDefault());
+    document.addEventListener('selectstart', (e) => e.preventDefault());
 
     const key = (down) => (e) => {
       const k = e.key;
