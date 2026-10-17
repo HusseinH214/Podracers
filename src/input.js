@@ -1,0 +1,69 @@
+// Hold-to-steer. Each finger is tracked separately; the left half of the
+// screen steers left, the right half steers right, both at once cancel out.
+// Arrow keys / A-D do the same on desktop.
+export class Input {
+  constructor(zone, leftArrow, rightArrow) {
+    this.zone = zone;
+    this.leftArrow = leftArrow;
+    this.rightArrow = rightArrow;
+    this.pointers = new Map(); // pointerId -> -1 | 1
+    this.keys = { left: false, right: false };
+
+    const sideOf = (e) => (e.clientX < window.innerWidth / 2 ? -1 : 1);
+    zone.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      zone.setPointerCapture?.(e.pointerId);
+      this.pointers.set(e.pointerId, sideOf(e));
+      this.#paint();
+    });
+    zone.addEventListener('pointermove', (e) => {
+      if (!this.pointers.has(e.pointerId)) return;
+      this.pointers.set(e.pointerId, sideOf(e)); // finger slid across the middle
+      this.#paint();
+    });
+    const release = (e) => {
+      this.pointers.delete(e.pointerId);
+      this.#paint();
+    };
+    for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+      zone.addEventListener(ev, release);
+    }
+    zone.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    const key = (down) => (e) => {
+      const k = e.key;
+      if (k === 'ArrowLeft' || k === 'a' || k === 'A') this.keys.left = down;
+      else if (k === 'ArrowRight' || k === 'd' || k === 'D') this.keys.right = down;
+      else return;
+      e.preventDefault();
+      this.#paint();
+    };
+    window.addEventListener('keydown', key(true));
+    window.addEventListener('keyup', key(false));
+    window.addEventListener('blur', () => this.clear());
+  }
+
+  get left() {
+    return this.keys.left || [...this.pointers.values()].includes(-1);
+  }
+
+  get right() {
+    return this.keys.right || [...this.pointers.values()].includes(1);
+  }
+
+  /** -1 left, 0 none (or both), 1 right */
+  get steer() {
+    return (this.right ? 1 : 0) - (this.left ? 1 : 0);
+  }
+
+  clear() {
+    this.pointers.clear();
+    this.keys.left = this.keys.right = false;
+    this.#paint();
+  }
+
+  #paint() {
+    this.leftArrow.classList.toggle('active', this.left);
+    this.rightArrow.classList.toggle('active', this.right);
+  }
+}

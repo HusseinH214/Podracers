@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#1a0f0a" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <title>Rift Runners</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231a0f0a'/%3E%3Cpath d='M6 22 L13 8 L16 14 L19 8 L26 22 Z' fill='%23f2b33d'/%3E%3C/svg%3E" />
+  </head>
+  <body>
+    <div id="app">
+      <div id="loading"><div class="bar"><span></span></div></div>
+
+      <!-- Touch layer: whole left / right halves steer -->
+      <div id="controls" aria-hidden="true">
+        <div id="arrow-left" class="arrow">
+          <svg viewBox="0 0 24 24"><path d="M15 4 L7 12 L15 20" /></svg>
+        </div>
+        <div id="arrow-right" class="arrow">
+          <svg viewBox="0 0 24 24"><path d="M9 4 L17 12 L9 20" /></svg>
+        </div>
+      </div>
+
+      <div id="hud" class="hidden">
+        <div class="hud-pos"><span id="pos">1</span><sup id="pos-suffix">st</sup><small>/4</small></div>
+        <div class="hud-progress">
+          <div class="track-bar" id="progress"><div class="finish-flag"></div></div>
+        </div>
+        <div class="hud-time"><span id="time">0:00.0</span><small>/ 1:30</small></div>
+        <div id="stun-badge" class="hidden">STUNNED</div>
+      </div>
+
+      <button id="mute" class="icon-btn" aria-label="Mute sound">🔊</button>
+
+      <div id="countdown" class="hidden"></div>
+      <div id="flash"></div>
+
+      <section id="title" class="overlay">
+        <div class="panel">
+          <p class="kicker">Canyon Circuit · 4 pods · 90 seconds</p>
+          <h1>RIFT<span>RUNNERS</span></h1>
+          <p class="hint touch-only">Hold the <b>left</b> or <b>right</b> side of the screen to steer.</p>
+          <p class="hint desk-only">Hold <b>← →</b> (or <b>A D</b>) to steer.</p>
+          <p class="hint">Rocks stun you. Walls slow you. Only first place wins.</p>
+          <button id="start" class="cta">Tap to race</button>
+          <p class="best" id="best-title"></p>
+        </div>
+      </section>
+
+      <section id="results" class="overlay hidden">
+        <div class="panel">
+          <p class="kicker" id="result-reason"></p>
+          <h1 id="result-title">VICTORY</h1>
+          <p class="result-line" id="result-line"></p>
+          <ol id="standings"></ol>
+          <button id="again" class="cta">Race again</button>
+          <p class="best" id="best-results"></p>
+        </div>
+      </section>
+
+      <section id="paused" class="overlay hidden">
+        <div class="panel">
+          <h1 class="small">PAUSED</h1>
+          <button id="resume" class="cta">Resume</button>
+        </div>
+      </section>
+
+      <section id="rotate" class="overlay">
+        <div class="panel">
+          <div class="phone-icon"></div>
+          <p>Rotate your phone to landscape</p>
+        </div>
+      </section>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
