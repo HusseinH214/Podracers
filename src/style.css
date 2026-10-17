@@ -144,6 +144,10 @@ canvas {
   margin-right: 44px; /* room for the mute button */
 }
 
+.has-fullscreen .hud-time {
+  margin-right: 96px; /* room for the mute and full screen buttons */
+}
+
 .hud-time.warn {
   color: var(--danger);
 }
@@ -275,6 +279,31 @@ canvas {
   color: var(--ink);
   font-size: 20px;
   cursor: pointer;
+}
+
+#fullscreen {
+  right: calc(60px + var(--safe-r)); /* just left of the mute button */
+  display: grid;
+  place-items: center;
+}
+
+#fullscreen svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+#fullscreen .fs-exit,
+#fullscreen.on .fs-enter {
+  display: none;
+}
+
+#fullscreen.on .fs-exit {
+  display: block;
 }
 
 /* ---- overlays ------------------------------------------------------------ */

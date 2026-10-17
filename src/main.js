@@ -118,6 +118,27 @@ muteBtn.addEventListener('click', () => {
   paintMute();
 });
 
+// Full screen toggle. No iPhone browser supports full screen for pages, so the
+// button only appears where the browser does (Android, desktop, iPad).
+const fsBtn = $('fullscreen');
+if (document.fullscreenEnabled) {
+  fsBtn.classList.remove('hidden');
+  app.classList.add('has-fullscreen');
+  const paintFs = () => {
+    const on = !!document.fullscreenElement;
+    fsBtn.classList.toggle('on', on);
+    fsBtn.setAttribute('aria-label', on ? 'Exit full screen' : 'Enter full screen');
+  };
+  fsBtn.addEventListener('click', () => {
+    const req = document.fullscreenElement
+      ? document.exitFullscreen()
+      : document.documentElement.requestFullscreen();
+    req.catch(() => {}); // denied or interrupted; the button just stays as it was
+  });
+  document.addEventListener('fullscreenchange', paintFs);
+  paintFs();
+}
+
 // ---- game flow ---------------------------------------------------------------
 
 let mode = 'title'; // 'title' | 'race' | 'results'
