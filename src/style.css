@@ -102,6 +102,79 @@ canvas {
   border-color: var(--accent);
 }
 
+/* ---- boost button (sits above the right arrow, over the touch layer) ----- */
+
+#boost {
+  --boost: clamp(48px, 10vmin, 72px);
+  --boost-color: #5ff0ff;
+  position: absolute;
+  z-index: 4;
+  right: calc(clamp(12px, 4vmin, 32px) + var(--safe-r) + (var(--arrow) - var(--boost)) / 2);
+  bottom: calc(clamp(12px, 4vmin, 32px) + var(--safe-b) + var(--arrow) + 14px);
+  width: var(--boost);
+  height: var(--boost);
+  padding: 0;
+  border-radius: 50%;
+  border: 2px dashed rgba(255, 246, 232, 0.3);
+  background: var(--glass);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  touch-action: none;
+  transition: transform 80ms, background 120ms, border-color 120ms, opacity 200ms;
+}
+
+#boost svg {
+  width: 56%;
+  height: 56%;
+  fill: rgba(255, 246, 232, 0.25);
+}
+
+#boost.ready {
+  border: 2px solid var(--boost-color);
+  background: rgba(95, 240, 255, 0.28);
+  box-shadow: 0 0 18px rgba(95, 240, 255, 0.55);
+  animation: boost-ready 1.1s ease-in-out infinite;
+}
+
+#boost.ready svg,
+#boost.active svg {
+  fill: #fff;
+}
+
+#boost.ready:active {
+  transform: scale(0.9);
+}
+
+#boost.active {
+  border: 2px solid #fff;
+  background: rgba(95, 240, 255, 0.7);
+  box-shadow: 0 0 26px rgba(95, 240, 255, 0.9);
+}
+
+#boost.used {
+  opacity: 0.35;
+}
+
+#boost.got {
+  animation: boost-got 0.5s ease-out, boost-ready 1.1s ease-in-out 0.5s infinite;
+}
+
+@keyframes boost-ready {
+  50% {
+    box-shadow: 0 0 6px rgba(95, 240, 255, 0.3);
+  }
+}
+
+@keyframes boost-got {
+  from {
+    transform: scale(1.6);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
 /* ---- HUD -------------------------------------------------------------- */
 
 #hud {
@@ -171,6 +244,17 @@ canvas {
   height: 18px;
   background: repeating-linear-gradient(#fff 0 3px, #111 3px 6px);
   border-radius: 1px;
+}
+
+.track-bar .boost-mark {
+  position: absolute;
+  top: -4px;
+  width: 4px;
+  height: 14px;
+  margin-left: -2px;
+  border-radius: 2px;
+  background: #5ff0ff;
+  box-shadow: 0 0 6px #5ff0ff;
 }
 
 .track-bar .dot {

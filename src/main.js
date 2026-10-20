@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { DT, POD, CAMERA, RACE, STUN, NAME_TAG, OUTRO } from './config.js';
 import { Track } from './track.js';
 import { Race } from './race.js';
-import { buildWorld, trackBasis, PALETTE } from './world.js';
+import { buildWorld, trackBasis, PALETTE, BOOST_COLOR } from './world.js';
 import { createPodModel } from './podModel.js';
 import { SpeedStreaks, Particles } from './effects.js';
 import { Audio } from './audio.js';
@@ -34,7 +34,8 @@ const views = race.pods.map((pod) => {
 const streaks = new SpeedStreaks(camera);
 const particles = new Particles(scene);
 const audio = new Audio();
-const input = new Input($('controls'), $('arrow-left'), $('arrow-right'));
+const boostBtn = $('boost');
+const input = new Input($('controls'), $('arrow-left'), $('arrow-right'), boostBtn);
 
 // ---- HUD ---------------------------------------------------------------------
 
@@ -45,6 +46,7 @@ const hud = {
   time: $('time'),
   timeBox: $('time').parentElement,
   stun: $('stun-badge'),
+  boostMark: $('boost-mark'),
   countdown: $('countdown'),
   flash: $('flash'),
   dots: race.pods.map((pod) => {
@@ -55,6 +57,11 @@ const hud = {
     return d;
   }),
 };
+
+if (track.boostPickup) {
+  hud.boostMark.style.left = `${(track.boostPickup.s / track.finishS) * 100}%`;
+  hud.boostMark.classList.remove('hidden');
+}
 
 const ordinal = (n) => ['th', 'st', 'nd', 'rd'][n] ?? 'th';
 const fmtTime = (t) => {
@@ -169,6 +176,9 @@ function startRace() {
     v.root.scale.setScalar(1);
   }
   world.gantry.set(-1);
+  world.pickup.setTaken(false);
+  boostBtn.classList.remove('hidden', 'got');
+  if (track.boostPickup) hud.boostMark.classList.remove('hidden');
   for (const id of ['title', 'results', 'paused']) $(id).classList.add('hidden');
   hud.root.classList.remove('hidden');
   hud.countdown.classList.add('hidden');
@@ -204,6 +214,7 @@ function showResults(result) {
   mode = 'results';
   hud.root.classList.add('hidden');
   hud.countdown.classList.add('hidden');
+  boostBtn.classList.add('hidden');
   const el = $('results');
   el.classList.toggle('win', result.win);
   el.classList.toggle('lose', !result.win);
@@ -288,6 +299,21 @@ function handleEvents() {
         if (ev.pod.isPlayer || Math.abs(ev.pod.s - player.s) < 80) audio.whoosh();
         break;
       }
+      case 'pickup':
+        world.pickup.setTaken(true);
+        hud.boostMark.classList.add('hidden');
+        track.pointAt(ev.pod.s, ev.pod.x, tmpV, POD.hoverHeight);
+        track.tangentAt(ev.pod.s, forward).multiplyScalar(ev.pod.speed);
+        particles.burst(tmpV, 30, BOOST_COLOR, 8, forward);
+        restartAnim(boostBtn, 'got');
+        audio.beep(true);
+        navigator.vibrate?.(40);
+        break;
+      case 'boost':
+        shake = Math.max(shake, 0.3);
+        audio.whoosh();
+        navigator.vibrate?.(60);
+        break;
       case 'end':
         resultDelay = 1.6;
         audio.jingle(ev.result.win);
@@ -386,6 +412,13 @@ function updatePods(alpha) {
       track.tangentAt(s, forward).multiplyScalar(p.speed * 0.5);
       particles.burst(tmpV, 3, 0xffc46b, 6, forward);
     }
+
+    // Boost trail.
+    if (p.boosting && Math.random() < 0.8) {
+      track.pointAt(s - POD.halfLength, x, tmpV, POD.hoverHeight);
+      track.tangentAt(s, forward).multiplyScalar(p.speed * 0.4);
+      particles.burst(tmpV, 2, BOOST_COLOR, 3, forward);
+    }
   }
 }
 
@@ -415,6 +448,7 @@ function updateCamera(dt, alpha) {
     const target =
       CAMERA.baseFov +
       CAMERA.speedFov * Math.min(1.1, speedNorm) +
+      (p.boosting ? CAMERA.boostFov : 0) +
       (portrait ? CAMERA.portraitFovBoost : 0);
     fov += (target - fov) * (1 - Math.exp(-dt * 3));
     shake = Math.max(0, shake - dt * 1.6);
@@ -433,6 +467,18 @@ function updateHud() {
   hud.time.textContent = fmtTime(race.time);
   hud.timeBox.classList.toggle('warn', race.time > RACE.timeLimit - 10);
   hud.stun.classList.toggle('hidden', !race.player.stunned);
+  const p = race.player;
+  const ready = p.hasBoost && race.state === 'racing';
+  boostBtn.classList.toggle('ready', ready);
+  boostBtn.classList.toggle('active', p.boosting);
+  boostBtn.classList.toggle('used', p.boostUsed && !p.boosting);
+  if (boostBtn.disabled === ready) {
+    boostBtn.disabled = !ready;
+    boostBtn.setAttribute(
+      'aria-label',
+      ready ? 'Use boost' : p.boostUsed ? 'Boost used' : 'Boost (not collected yet)',
+    );
+  }
   race.pods.forEach((p, i) => {
     hud.dots[i].style.left = `${Math.min(1, Math.max(0, p.s / track.finishS)) * 100}%`;
   });
@@ -453,7 +499,7 @@ function frame(now) {
     acc += dt;
     let steps = 0;
     while (acc >= DT && steps < 8) {
-      race.step(input.steer);
+      race.step(input.steer, input.takeBoost());
       handleEvents();
       acc -= DT;
       steps++;
@@ -470,6 +516,7 @@ function frame(now) {
   updateCamera(dt, alpha);
   streaks.update(dt, mode === 'title' ? 0 : race.player.speed / POD.cruiseSpeed);
   particles.update(dt);
+  world.pickup.update(clock);
   if (mode === 'race') updateHud();
 
   const p = race.player;

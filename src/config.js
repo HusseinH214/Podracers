@@ -44,6 +44,22 @@ export const STUN = {
   invulnerable: 1.4, // after the stun ends, terrain hits are ignored
 };
 
+// Player-only, single-use boost. One pickup sits in a tight gap in the second
+// half of the course. Sized to win back roughly one rock crash (~90 m), see README.
+export const BOOST = {
+  pickupFrom: 0.5, // pickup placed between these fractions of the course...
+  pickupTo: 0.75,
+  minGap: 1.25, // ...in the narrowest optional gap between obstacles at least this wide
+  // (pod-centre metres at full visual size; the real hitbox leaves ~1 m more)
+  pickupRadius: 1.2, // sideways distance from the pickup centre that still collects it
+  duration: 3, // seconds of boosted top speed
+  speedMult: 1.35, // top speed multiplier while boosting
+  kick: 1.1, // on use, speed jumps to at least this x top speed
+  accel: 40, // forward acceleration while boosting (normal is POD.accel)
+  // While boosting the pod is shielded from rocks: rows are only spaced to be
+  // dodgeable at normal top speed, so boosting into one would be unfair.
+};
+
 export const CONTACT = {
   push: 9, // sideways speed given to each pod on contact
   speedFactor: 0.96, // both pods lose a little speed
@@ -108,6 +124,7 @@ export const CAMERA = {
   lookAhead: 16,
   baseFov: 68,
   speedFov: 14, // extra FOV at top speed
+  boostFov: 10, // extra FOV while boosting
   portraitFovBoost: 18,
   shakeOnStun: 0.6,
 };

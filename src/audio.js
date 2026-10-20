@@ -1,6 +1,11 @@
 // All sounds are synthesised with the Web Audio API: no files to download,
 // nothing to license. The context must be created/resumed inside a user tap
 // (iOS rule), which is what unlock() is for.
+
+// Engine hum loudness (1 = original mix). It plays for the whole race, so it
+// sits well under the one-shot effects.
+const ENGINE_VOLUME = 0.5;
+
 export class Audio {
   constructor() {
     this.ctx = null;
@@ -91,7 +96,7 @@ export class Audio {
     this.oscA.frequency.setTargetAtTime(base, t, 0.08);
     this.oscB.frequency.setTargetAtTime(base * 1.505, t, 0.08);
     this.engineFilter.frequency.setTargetAtTime(300 + speedNorm * 1800, t, 0.1);
-    this.engineGain.gain.setTargetAtTime(on ? 0.07 + speedNorm * 0.06 : 0, t, 0.15);
+    this.engineGain.gain.setTargetAtTime(on ? (0.07 + speedNorm * 0.06) * ENGINE_VOLUME : 0, t, 0.15);
   }
 
   scrape(on) {

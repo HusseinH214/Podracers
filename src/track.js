@@ -1,5 +1,5 @@
 import { CatmullRomCurve3, Vector3 } from 'three';
-import { POD, RACE, BOTS, RUBBER_BAND } from './config.js';
+import { POD, RACE, BOTS, RUBBER_BAND, BOOST } from './config.js';
 import { makeRng } from './rng.js';
 
 const SAMPLE_STEP = 1; // metres between precomputed track frames
@@ -29,6 +29,7 @@ export class Track {
     this.#buildCurve();
     this.#sample();
     this.#placeObstacles();
+    this.#placeBoost();
   }
 
   // ---- geometry -----------------------------------------------------------
@@ -277,6 +278,31 @@ export class Track {
     }
     if (cursor < lim) gaps.push([cursor, lim]);
     return gaps.filter(([lo, hi]) => hi - lo >= 0.9);
+  }
+
+  /**
+   * The boost pickup sits in the middle of the tightest gap between two
+   * obstacles (not against a canyon wall) in the second half of the course,
+   * on a row that has another way through, so grabbing it is a risk you choose.
+   * Gaps are measured at full visual size, so the centre is always clear.
+   */
+  #placeBoost() {
+    const from = this.finishS * BOOST.pickupFrom;
+    const to = this.finishS * BOOST.pickupTo;
+    let best = null;
+    let fallback = null;
+    for (const row of this.rows) {
+      if (row.s < from || row.s > to) continue;
+      const lim = this.limitAt(row.s);
+      for (const [lo, hi] of row.gaps) {
+        const width = hi - lo;
+        const spot = { s: row.s, x: (lo + hi) / 2, width, row: row.index };
+        if (!fallback || width < fallback.width) fallback = spot;
+        const between = row.gaps.length > 1 && lo > -lim + 0.01 && hi < lim - 0.01;
+        if (between && width >= BOOST.minGap && (!best || width < best.width)) best = spot;
+      }
+    }
+    this.boostPickup = best ?? fallback;
   }
 
   /** Index of the first obstacle with s >= value (binary search). */

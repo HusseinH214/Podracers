@@ -1,4 +1,4 @@
-import { DT, RACE, POD, BOTS, CONTACT, RUBBER_BAND, PLAYER_COLOR, OUTRO } from './config.js';
+import { DT, RACE, POD, BOTS, CONTACT, RUBBER_BAND, PLAYER_COLOR, OUTRO, BOOST } from './config.js';
 import { Pod } from './pod.js';
 import { BotDriver } from './bot.js';
 import { makeRng } from './rng.js';
@@ -44,6 +44,7 @@ export class Race {
     this.result = null;
     this.contactCooldown = new Map();
     this.ghostPairs = new Set();
+    this.pickupTaken = false;
     this.events.length = 0;
     this.lastTick = Math.ceil(this.countdown) + 1;
   }
@@ -70,7 +71,8 @@ export class Race {
     this.events.push({ type, ...data });
   }
 
-  step(playerSteer) {
+  /** `useBoost`: the player asked to fire their held boost this step. */
+  step(playerSteer, useBoost = false) {
     if (this.state === 'countdown') {
       this.countdown -= DT;
       const tick = Math.ceil(this.countdown);
@@ -90,11 +92,16 @@ export class Race {
     if (this.player.finished || this.state === 'done') {
       this.autopilot ??= new BotDriver(this.player, { ...BOTS[1], mistakeRate: 0 }, makeRng(7));
       steerP = this.autopilot.decide(this, DT);
+    } else if (useBoost && this.state === 'racing' && this.player.activateBoost()) {
+      this.emit('boost', { pod: this.player });
     }
 
     const steers = this.drivers.map((d) => (d.pod.warped ? 0 : d.decide(this, DT)));
 
-    if (!this.player.warped) this.#movePod(this.player, steerP, 1);
+    if (!this.player.warped) {
+      this.#movePod(this.player, steerP, 1);
+      this.#checkPickup();
+    }
     this.bots.forEach((pod, i) => {
       if (!pod.warped) this.#movePod(pod, steers[i], this.#rubberBand(pod));
     });
@@ -111,7 +118,7 @@ export class Race {
     const hit = pod.update(DT, this.track, steer, speedMult);
     if (hit) this.emit('wall', { pod });
 
-    if (pod.stun > 0 || pod.invuln > 0) return;
+    if (pod.stun > 0 || pod.invuln > 0 || pod.boosting) return;
     const obs = this.track.obstacles;
     const reach = 25; // longest obstacle half-length + pod length, with room to spare
     for (let i = this.track.obstacleIndexAt(pod.prevS - reach); i < obs.length; i++) {
@@ -124,6 +131,19 @@ export class Race {
         break;
       }
     }
+  }
+
+  // The player collects the boost by passing through it (swept along s, so no frame skips it).
+  #checkPickup() {
+    const pick = this.track.boostPickup;
+    const p = this.player;
+    if (!pick || this.pickupTaken || p.finished || p.prevS > pick.s || p.s < pick.s) return;
+    const k = p.s > p.prevS ? (pick.s - p.prevS) / (p.s - p.prevS) : 1;
+    const x = p.prevX + (p.x - p.prevX) * k;
+    if (Math.abs(x - pick.x) > BOOST.pickupRadius) return;
+    this.pickupTaken = true;
+    p.hasBoost = true;
+    this.emit('pickup', { pod: p });
   }
 
   // Shove a stunned pod out of the obstacle sideways so it never drives through rock.

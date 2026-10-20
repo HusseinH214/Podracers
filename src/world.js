@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { makeRng } from './rng.js';
+import { POD } from './config.js';
 
 const TMP = new THREE.Vector3();
 const TAN = new THREE.Vector3();
@@ -53,8 +54,54 @@ export function buildWorld(scene, track) {
   const gantry = buildGantry(track);
   scene.add(gantry.group);
   scene.add(buildFinishArch(track));
+  const pickup = buildBoostPickup(track);
+  scene.add(pickup.group);
 
-  return { sky, gantry };
+  return { sky, gantry, pickup };
+}
+
+// ---- boost pickup ------------------------------------------------------------
+
+export const BOOST_COLOR = 0x5ff0ff;
+
+function buildBoostPickup(track) {
+  const group = new THREE.Group();
+  const p = track.boostPickup;
+  if (!p) return { group, update() {}, setTaken() {} };
+
+  const glow = { color: BOOST_COLOR, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending };
+  const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.75, 0), new THREE.MeshBasicMaterial({ color: BOOST_COLOR }));
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(1.25, 0.09, 6, 28),
+    new THREE.MeshBasicMaterial({ ...glow, color: 0xffffff, opacity: 0.85 }),
+  );
+  // Tall beacon so the pickup reads from a distance, past the rocks in front of it.
+  const beam = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.35, 0.8, 36, 12, 1, true),
+    new THREE.MeshBasicMaterial({ ...glow, opacity: 0.28, side: THREE.DoubleSide, fog: false }),
+  );
+  beam.position.y = 18;
+  const spinner = new THREE.Group();
+  spinner.position.y = POD.hoverHeight;
+  spinner.add(core, ring);
+  group.add(spinner, beam);
+
+  track.pointAt(p.s, p.x, group.position, 0);
+  trackBasis(track, p.s, MAT4);
+  group.quaternion.setFromRotationMatrix(MAT4);
+
+  return {
+    group,
+    update(t) {
+      spinner.position.y = POD.hoverHeight + Math.sin(t * 3) * 0.18;
+      core.rotation.y = t * 2.4;
+      ring.rotation.set(Math.PI / 2 + Math.sin(t * 1.7) * 0.4, t * 1.1, 0);
+      beam.material.opacity = 0.22 + Math.sin(t * 5) * 0.06;
+    },
+    setTaken(taken) {
+      group.visible = !taken;
+    },
+  };
 }
 
 // ---- sky -------------------------------------------------------------------

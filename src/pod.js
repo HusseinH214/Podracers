@@ -1,4 +1,4 @@
-import { POD, WALL, STUN } from './config.js';
+import { POD, WALL, STUN, BOOST } from './config.js';
 
 // A pod is two numbers: distance along the track (s) and sideways offset (x).
 // Speed always moves it forward; steering only changes sideways velocity, so a
@@ -30,6 +30,25 @@ export class Pod {
     this.finishTime = null;
     this.stunCount = 0;
     this.warped = false; // gone from the track after the finish outro
+    this.hasBoost = false; // holding an unused boost
+    this.boostUsed = false;
+    this.boost = 0; // seconds of boost left
+  }
+
+  get boosting() {
+    return this.boost > 0;
+  }
+
+  /** Fire the held boost. It also shakes off a stun, so it works as a crash recovery. */
+  activateBoost() {
+    if (!this.hasBoost) return false;
+    this.hasBoost = false;
+    this.boostUsed = true;
+    this.boost = BOOST.duration;
+    this.stun = 0;
+    this.invuln = 0;
+    this.speed = Math.max(this.speed, this.topSpeed * BOOST.kick);
+    return true;
   }
 
   /** Leave the track: stop dead so nothing (camera, audio, streaks) keeps moving. */
@@ -42,6 +61,7 @@ export class Pod {
     this.wallContact = 0;
     this.stun = 0;
     this.invuln = 0;
+    this.boost = 0;
   }
 
   get topSpeed() {
@@ -76,12 +96,14 @@ export class Pod {
     const dv = target - this.vx;
     this.vx += Math.sign(dv) * Math.min(Math.abs(dv), a * dt);
 
-    // Forward: automatic throttle up to top speed (no boost control).
-    const top = this.topSpeed * speedMult;
+    // Forward: automatic throttle up to top speed, raised while boosting.
+    const boosting = this.boost > 0;
+    if (boosting) this.boost = Math.max(0, this.boost - dt);
+    const top = this.topSpeed * speedMult * (boosting ? BOOST.speedMult : 1);
     if (this.stun > 0) {
       this.speed = Math.max(0, this.speed - 3 * dt);
     } else if (this.speed < top) {
-      this.speed = Math.min(top, this.speed + POD.accel * dt);
+      this.speed = Math.min(top, this.speed + (boosting ? BOOST.accel : POD.accel) * dt);
     } else {
       this.speed = Math.max(top, this.speed - POD.accel * 0.5 * dt);
     }

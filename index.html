@@ -26,11 +26,16 @@
       <div id="hud" class="hidden">
         <div class="hud-pos"><span id="pos">1</span><sup id="pos-suffix">st</sup><small>/4</small></div>
         <div class="hud-progress">
-          <div class="track-bar" id="progress"><div class="finish-flag"></div></div>
+          <div class="track-bar" id="progress"><div class="finish-flag"></div><div class="boost-mark hidden" id="boost-mark"></div></div>
         </div>
         <div class="hud-time"><span id="time">0:00.0</span><small>/ 1:30</small></div>
         <div id="stun-badge" class="hidden">STUNNED</div>
       </div>
+
+      <!-- Single-use boost: empty until the pickup is collected -->
+      <button id="boost" class="hidden" aria-label="Boost (not collected yet)" disabled>
+        <svg viewBox="0 0 24 24"><path d="M13.5 2 L5 13.5 h6 l-1.5 8.5 L18 10.5 h-6 z" /></svg>
+      </button>
 
       <button id="mute" class="icon-btn" aria-label="Mute sound">🔊</button>
       <button id="fullscreen" class="icon-btn hidden" aria-label="Enter full screen">
@@ -46,8 +51,8 @@
           <p class="kicker">Canyon Circuit · 4 pods · 90 seconds</p>
           <h1>RIFT<span>RUNNERS</span></h1>
           <p class="hint touch-only">Hold the <b>left</b> or <b>right</b> side of the screen to steer.</p>
-          <p class="hint desk-only">Hold <b>← →</b> (or <b>A D</b>) to steer.</p>
           <p class="hint">Rocks stun you. Walls slow you. Only first place wins.</p>
+          <p class="hint">Thread the gap to grab the <b>boost cell</b> after halfway, then tap <b>⚡</b> to use it.</p>
           <button id="start" class="cta">Tap to race</button>
           <p class="best" id="best-title"></p>
         </div>

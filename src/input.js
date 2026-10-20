@@ -1,13 +1,27 @@
 // Hold-to-steer. Each finger is tracked separately; the left half of the
 // screen steers left, the right half steers right, both at once cancel out.
-// Arrow keys / A-D do the same on desktop.
+// Arrow keys / A-D do the same on desktop. The boost button (or Space / W / Up)
+// queues a boost press that the game loop picks up with takeBoost().
 export class Input {
-  constructor(zone, leftArrow, rightArrow) {
+  constructor(zone, leftArrow, rightArrow, boostButton) {
     this.zone = zone;
     this.leftArrow = leftArrow;
     this.rightArrow = rightArrow;
     this.pointers = new Map(); // pointerId -> -1 | 1
     this.keys = { left: false, right: false };
+    this.boostQueued = false;
+
+    // pointerdown, not click, so the boost fires the instant it's touched.
+    boostButton.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      if (!boostButton.disabled) this.boostQueued = true;
+    });
+    boostButton.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });
+    window.addEventListener('keydown', (e) => {
+      if (e.repeat || !(e.key === ' ' || e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W')) return;
+      e.preventDefault();
+      this.boostQueued = true;
+    });
 
     const sideOf = (e) => (e.clientX < window.innerWidth / 2 ? -1 : 1);
     zone.addEventListener('pointerdown', (e) => {
@@ -62,7 +76,15 @@ export class Input {
     return (this.right ? 1 : 0) - (this.left ? 1 : 0);
   }
 
+  /** True once per boost press. */
+  takeBoost() {
+    const queued = this.boostQueued;
+    this.boostQueued = false;
+    return queued;
+  }
+
   clear() {
+    this.boostQueued = false;
     this.pointers.clear();
     this.keys.left = this.keys.right = false;
     this.#paint();

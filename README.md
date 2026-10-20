@@ -15,7 +15,7 @@ npm run build      # production build into dist/
 npm run sim        # headless balance check: 200 simulated races per driver type
 ```
 
-Desktop controls are the arrow keys or A / D.
+Desktop controls are the arrow keys or A / D to steer, and Space (or W / ↑) to boost.
 
 ## Decisions on the open questions
 
@@ -27,8 +27,17 @@ Desktop controls are the arrow keys or A / D.
 | Pod-to-pod hard hit | **No stun.** Both pods are pushed apart and lose 4% speed. |
 | At 90 seconds | **Furthest along wins**, and the player can lose on time |
 | Orientation | **Landscape**, with a "Rotate your phone" overlay in portrait (the race pauses) |
-| Speed / boost | **Automatic speed**, no boost |
+| Speed / boost | **Automatic speed**, plus one **single-use boost** (see below) |
 
+
+## Boost
+
+Crashing into a rock costs about **90 m** (≈1.5 s), which usually decides the race. To give the player a way back:
+
+- **One pickup per race, player only.** It sits in the tightest optional gap between two obstacles between 50% and 75% of the course. Today that is a 2.2 m slot between pillars at 51%, next to a wider safe route, with a light beam above it and a cyan tick on the progress bar.
+- **Use it whenever you like** with the ⚡ button above the right arrow (or Space). It's dim until collected, glows when ready, and fades once used.
+- **Strength:** top speed ×1.35 for 3 s with a quick kick. It's worth **≈88 m, about one crash**. It also clears a stun if you use it right after crashing, and shields you from rocks while it's active, because rows are only spaced to be dodgeable at normal speed.
+- **Effect:** a sloppy driver who saves it for after a crash goes from about 33% to 64% wins, with finish times close to a clean run. Tune it in `BOOST` in `src/config.js`.
 
 ## Code map
 
