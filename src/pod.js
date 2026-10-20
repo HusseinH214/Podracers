@@ -29,6 +29,19 @@ export class Pod {
     this.finishOrder = 0;
     this.finishTime = null;
     this.stunCount = 0;
+    this.warped = false; // gone from the track after the finish outro
+  }
+
+  /** Leave the track: stop dead so nothing (camera, audio, streaks) keeps moving. */
+  warpOut() {
+    this.warped = true;
+    this.speed = 0;
+    this.vx = 0;
+    this.prevS = this.s;
+    this.prevX = this.x;
+    this.wallContact = 0;
+    this.stun = 0;
+    this.invuln = 0;
   }
 
   get topSpeed() {

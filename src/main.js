@@ -1,6 +1,6 @@
 import './style.css';
 import * as THREE from 'three';
-import { DT, POD, CAMERA, RACE, STUN, NAME_TAG } from './config.js';
+import { DT, POD, CAMERA, RACE, STUN, NAME_TAG, OUTRO } from './config.js';
 import { Track } from './track.js';
 import { Race } from './race.js';
 import { buildWorld, trackBasis, PALETTE } from './world.js';
@@ -163,6 +163,11 @@ function startRace() {
   lastRank = 0;
   input.clear();
   particles.clear();
+  for (const v of views) {
+    v.warpStart = null;
+    v.root.visible = true;
+    v.root.scale.setScalar(1);
+  }
   world.gantry.set(-1);
   for (const id of ['title', 'results', 'paused']) $(id).classList.add('hidden');
   hud.root.classList.remove('hidden');
@@ -274,6 +279,15 @@ function handleEvents() {
           audio.bump();
         }
         break;
+      case 'warp': {
+        const v = views.find((view) => view.pod === ev.pod);
+        v.warpStart = clock;
+        track.pointAt(ev.pod.s, ev.pod.x, tmpV, POD.hoverHeight);
+        track.tangentAt(ev.pod.s, forward).multiplyScalar(POD.cruiseSpeed * 0.6);
+        particles.burst(tmpV, 34, ev.pod.color, 9, forward);
+        if (ev.pod.isPlayer || Math.abs(ev.pod.s - player.s) < 80) audio.whoosh();
+        break;
+      }
       case 'end':
         resultDelay = 1.6;
         audio.jingle(ev.result.win);
@@ -323,6 +337,13 @@ const maxTilt = THREE.MathUtils.degToRad(POD.maxTiltDeg);
 function updatePods(alpha) {
   for (const v of views) {
     const p = v.pod;
+    // Warped out after the finish: shrink away quickly, then hide.
+    if (p.warped) {
+      const k = 1 - (clock - (v.warpStart ?? clock - OUTRO.warpAnim)) / OUTRO.warpAnim;
+      v.root.visible = k > 0;
+      if (k > 0) v.root.scale.setScalar(k * k);
+      continue;
+    }
     const s = p.prevS + (p.s - p.prevS) * alpha;
     const x = p.prevX + (p.x - p.prevX) * alpha;
     const bob = Math.sin(clock * 3.1 + p.id * 1.7) * 0.07;

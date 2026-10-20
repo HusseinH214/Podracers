@@ -1,4 +1,4 @@
-import { DT, RACE, POD, BOTS, CONTACT, RUBBER_BAND, PLAYER_COLOR } from './config.js';
+import { DT, RACE, POD, BOTS, CONTACT, RUBBER_BAND, PLAYER_COLOR, OUTRO } from './config.js';
 import { Pod } from './pod.js';
 import { BotDriver } from './bot.js';
 import { makeRng } from './rng.js';
@@ -92,13 +92,16 @@ export class Race {
       steerP = this.autopilot.decide(this, DT);
     }
 
-    const steers = this.drivers.map((d) => d.decide(this, DT));
+    const steers = this.drivers.map((d) => (d.pod.warped ? 0 : d.decide(this, DT)));
 
-    this.#movePod(this.player, steerP, 1);
-    this.bots.forEach((pod, i) => this.#movePod(pod, steers[i], this.#rubberBand(pod)));
+    if (!this.player.warped) this.#movePod(this.player, steerP, 1);
+    this.bots.forEach((pod, i) => {
+      if (!pod.warped) this.#movePod(pod, steers[i], this.#rubberBand(pod));
+    });
 
     this.#podContacts();
     this.#checkFinish();
+    this.#checkWarp();
     this.#rank();
 
     if (this.state === 'racing' && this.time >= RACE.timeLimit) this.#endRace('time');
@@ -163,7 +166,7 @@ export class Race {
         const dx = b.x - a.x;
         const minX = POD.halfWidth * 2 * 0.9;
         const key = a.id * 8 + b.id;
-        if (ds >= POD.halfLength * 2 || Math.abs(dx) >= minX) {
+        if (a.warped || b.warped || ds >= POD.halfLength * 2 || Math.abs(dx) >= minX) {
           this.ghostPairs.delete(key);
           continue;
         }
@@ -201,6 +204,17 @@ export class Race {
       this.emit('finish', { pod });
     }
     if (this.state === 'racing' && this.player.finished) this.#endRace('finish');
+  }
+
+  // Finished pods coast a short way down the run-out, then warp off the track.
+  #checkWarp() {
+    const at = this.track.finishS + OUTRO.warpDistance;
+    for (const pod of this.pods) {
+      if (pod.finished && !pod.warped && pod.s >= at) {
+        pod.warpOut();
+        this.emit('warp', { pod });
+      }
+    }
   }
 
   #rank() {

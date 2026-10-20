@@ -13,6 +13,13 @@ export const RACE = {
   obstacleSeed: 1977,
 };
 
+// After crossing the line, each pod coasts a short way then warps out, so the
+// pack never reaches the end of the run-out and piles up there.
+export const OUTRO = {
+  warpDistance: 150, // metres past the finish line before a pod warps out
+  warpAnim: 0.35, // seconds for the shrink-and-burst warp effect
+};
+
 export const POD = {
   cruiseSpeed: 60,
   accel: 16, // forward acceleration back up to top speed

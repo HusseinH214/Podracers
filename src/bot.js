@@ -54,7 +54,7 @@ export class BotDriver {
 
     // Other pods are moving obstacles: steer around one that's just ahead.
     for (const other of race.pods) {
-      if (other === pod || (this.p.bully && other === player)) continue;
+      if (other === pod || other.warped || (this.p.bully && other === player)) continue;
       const ds = other.s - pod.s;
       const dx = other.x - pod.x;
       if (ds > 0 && ds < 14 && Math.abs(dx) < POD.halfWidth * 2.2) {
