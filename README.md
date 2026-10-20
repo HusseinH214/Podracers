@@ -17,13 +17,6 @@ npm run sim        # headless balance check: 200 simulated races per driver type
 
 Desktop controls are the arrow keys or A / D.
 
-## Deploy to GitHub Pages
-
-1. Push this folder as the root of a GitHub repo, on the `main` branch.
-2. In the repo, go to **Settings → Pages → Build and deployment → Source** and choose **GitHub Actions**.
-3. Every push to `main` runs [.github/workflows/deploy.yml](.github/workflows/deploy.yml), which builds the site with `BASE_PATH=/<repo-name>/` and publishes it to `https://<username>.github.io/<repo-name>/`.
-4. Once that URL is stable, generate the QR code for it. Print it large with the URL written underneath.
-
 ## Decisions on the open questions
 
 | Question | Decision |
@@ -35,7 +28,7 @@ Desktop controls are the arrow keys or A / D.
 | At 90 seconds | **Furthest along wins**, and the player can lose on time |
 | Orientation | **Landscape**, with a "Rotate your phone" overlay in portrait (the race pauses) |
 | Speed / boost | **Automatic speed**, no boost |
-| Name and look | "Rift Runners": original pods (twin engines, energy binder, towed cockpit), original bot names VEX, OLLA and KRAGG |
+
 
 ## Code map
 
