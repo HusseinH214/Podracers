@@ -1,6 +1,6 @@
 import './style.css';
 import * as THREE from 'three';
-import { DT, POD, CAMERA, RACE, STUN, NAME_TAG, OUTRO } from './config.js';
+import { DT, POD, CAMERA, RACE, STUN, NAME_TAG, PLAYER_TAG, OUTRO } from './config.js';
 import { Track } from './track.js';
 import { Race } from './race.js';
 import { buildWorld, trackBasis, PALETTE, BOOST_COLOR } from './world.js';
@@ -27,7 +27,12 @@ const track = new Track();
 const world = buildWorld(scene, track);
 const race = new Race(track);
 const views = race.pods.map((pod) => {
-  const view = createPodModel(pod.color, pod.isPlayer ? null : pod.name);
+  const view = createPodModel(pod.color, pod.name);
+  if (pod.isPlayer) {
+    view.tag.position.y = PLAYER_TAG.height;
+    view.tag.scale.multiplyScalar(PLAYER_TAG.scale);
+    view.tag.material.opacity = PLAYER_TAG.opacity;
+  }
   scene.add(view.root);
   return { pod, ...view };
 });
@@ -392,7 +397,7 @@ function updatePods(alpha) {
     v.body.visible = !((p.invuln > 0 || race.isGhost(p)) && Math.floor(clock * 14) % 2);
 
     // Fade bot name tags out up close so they don't block the player's view.
-    if (v.tag) {
+    if (v.tag && !p.isPlayer) {
       const d = mode === 'title' ? Infinity : v.root.position.distanceTo(camera.position);
       const k = THREE.MathUtils.smoothstep(d, NAME_TAG.hideWithin, NAME_TAG.showBeyond);
       v.tag.material.opacity = k;

@@ -118,6 +118,14 @@ export const NAME_TAG = {
   showBeyond: 26, // fully shown this far out
 };
 
+// "YOU" tag above the player's pod. Never fades (the camera is always close),
+// so it's kept smaller and lower than bot tags to leave the road ahead visible.
+export const PLAYER_TAG = {
+  height: 1.9, // metres above the pod
+  scale: 0.7, // relative to a bot tag
+  opacity: 0.9,
+};
+
 export const CAMERA = {
   behind: 9.5,
   height: 3.6,
