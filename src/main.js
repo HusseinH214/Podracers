@@ -1,9 +1,9 @@
 import './style.css';
 import * as THREE from 'three';
-import { DT, POD, CAMERA, RACE, STUN, NAME_TAG, PLAYER_TAG, OUTRO } from './config.js';
+import { DT, POD, CAMERA, RACE, STUN, NAME_TAG, PLAYER_TAG, OUTRO, SHORTCUT } from './config.js';
 import { Track } from './track.js';
 import { Race } from './race.js';
-import { buildWorld, trackBasis, PALETTE, BOOST_COLOR } from './world.js';
+import { buildWorld, trackBasis, PALETTE, BOOST_COLOR, SHORTCUT_COLOR } from './world.js';
 import { createPodModel } from './podModel.js';
 import { SpeedStreaks, Particles } from './effects.js';
 import { Audio } from './audio.js';
@@ -52,6 +52,7 @@ const hud = {
   timeBox: $('time').parentElement,
   stun: $('stun-badge'),
   boostMark: $('boost-mark'),
+  shortcut: $('shortcut-badge'),
   countdown: $('countdown'),
   flash: $('flash'),
   dots: race.pods.map((pod) => {
@@ -66,6 +67,13 @@ const hud = {
 if (track.boostPickup) {
   hud.boostMark.style.left = `${(track.boostPickup.s / track.finishS) * 100}%`;
   hud.boostMark.classList.remove('hidden');
+}
+
+if (track.shortcut) {
+  const mark = $('shortcut-mark');
+  mark.style.left = `${(track.shortcut.sIn / track.finishS) * 100}%`;
+  mark.style.width = `${((track.shortcut.sOut - track.shortcut.sIn) / track.finishS) * 100}%`;
+  mark.classList.remove('hidden');
 }
 
 const ordinal = (n) => ['th', 'st', 'nd', 'rd'][n] ?? 'th';
@@ -160,6 +168,8 @@ let resultDelay = -1;
 let lastRank = 0;
 let shake = 0;
 let camX = 0;
+let camWide = 0; // 0..1, eases the camera onto the pod's exact line when it's out by the shortcut
+let camInTunnel = false;
 let fov = CAMERA.baseFov;
 let clock = 0;
 
@@ -172,6 +182,8 @@ function startRace() {
   resultDelay = -1;
   shake = 0;
   camX = race.player.x;
+  camWide = 0;
+  camInTunnel = false;
   lastRank = 0;
   input.clear();
   particles.clear();
@@ -181,7 +193,7 @@ function startRace() {
     v.root.scale.setScalar(1);
   }
   world.gantry.set(-1);
-  world.pickup.setTaken(false);
+  for (const pickup of world.pickups) pickup.setTaken(false);
   boostBtn.classList.remove('hidden', 'got');
   if (track.boostPickup) hud.boostMark.classList.remove('hidden');
   for (const id of ['title', 'results', 'paused']) $(id).classList.add('hidden');
@@ -305,14 +317,20 @@ function handleEvents() {
         break;
       }
       case 'pickup':
-        world.pickup.setTaken(true);
-        hud.boostMark.classList.add('hidden');
+        world.pickups[ev.index].setTaken(true);
+        if (track.pickups[ev.index] === track.boostPickup) hud.boostMark.classList.add('hidden');
         track.pointAt(ev.pod.s, ev.pod.x, tmpV, POD.hoverHeight);
         track.tangentAt(ev.pod.s, forward).multiplyScalar(ev.pod.speed);
         particles.burst(tmpV, 30, BOOST_COLOR, 8, forward);
         restartAnim(boostBtn, 'got');
         audio.beep(true);
         navigator.vibrate?.(40);
+        break;
+      case 'shortcut':
+        track.pointAt(ev.pod.s, ev.pod.x, tmpV, POD.hoverHeight);
+        track.tangentAt(ev.pod.s, forward).multiplyScalar(ev.pod.speed);
+        particles.burst(tmpV, 16, SHORTCUT_COLOR, 6, forward);
+        audio.whoosh();
         break;
       case 'boost':
         shake = Math.max(shake, 0.3);
@@ -442,8 +460,25 @@ function updateCamera(dt, alpha) {
     fov = CAMERA.baseFov + (portrait ? CAMERA.portraitFovBoost : 0);
   } else {
     camX += (x - camX) * (1 - Math.exp(-dt * 7));
-    track.pointAt(s - CAMERA.behind, camX * 0.85, camera.position, CAMERA.height);
-    track.pointAt(s + CAMERA.lookAhead, camX * 0.6, look, 1.2);
+    const sc = track.shortcut;
+    const wide = sc && sc.side * x > track.limitAt(s) ? 1 : 0;
+    camWide += (wide - camWide) * (1 - Math.exp(-dt * 4));
+    const camS = s - CAMERA.behind;
+    let camOff = camX * (0.85 + 0.15 * camWide);
+    // Alongside the shortcut ridge, keep the camera on the pod's side of it.
+    if (sc && camS > sc.sNose - 12 && camS < sc.sOut) {
+      if (camS < sc.sNose) camInTunnel = sc.side * x > track.halfWidthAt(s) + SHORTCUT.ridge / 2;
+      const hwC = track.halfWidthAt(camS);
+      const u = sc.side * camOff;
+      if (camInTunnel) {
+        const k = THREE.MathUtils.smoothstep(camS, sc.sNose - 12, sc.sNose);
+        camOff = sc.side * (u + (Math.max(u, hwC + SHORTCUT.ridge + 0.6) - u) * k);
+      } else if (camS >= sc.sNose) {
+        camOff = sc.side * Math.min(u, hwC - 0.6);
+      }
+    }
+    track.pointAt(camS, camOff, camera.position, CAMERA.height);
+    track.pointAt(s + CAMERA.lookAhead, camX * (0.6 + 0.4 * camWide), look, 1.2);
     const speedNorm = p.speed / POD.cruiseSpeed;
     const jitter = shake + speedNorm * 0.025;
     camera.position.x += (Math.random() - 0.5) * jitter;
@@ -472,11 +507,14 @@ function updateHud() {
   hud.time.textContent = fmtTime(race.time);
   hud.timeBox.classList.toggle('warn', race.time > RACE.timeLimit - 10);
   hud.stun.classList.toggle('hidden', !race.player.stunned);
+  hud.shortcut.classList.toggle('hidden', !race.player.inShortcut || race.player.stunned);
   const p = race.player;
   const ready = p.hasBoost && race.state === 'racing';
   boostBtn.classList.toggle('ready', ready);
   boostBtn.classList.toggle('active', p.boosting);
-  boostBtn.classList.toggle('used', p.boostUsed && !p.boosting);
+  boostBtn.classList.toggle('used', p.boostUsed && !p.boosting && !ready);
+  const count = p.boosts > 1 ? String(p.boosts) : ''; // two held after the shortcut's bonus cell
+  if (boostBtn.dataset.count !== count) boostBtn.dataset.count = count;
   if (boostBtn.disabled === ready) {
     boostBtn.disabled = !ready;
     boostBtn.setAttribute(
@@ -521,7 +559,7 @@ function frame(now) {
   updateCamera(dt, alpha);
   streaks.update(dt, mode === 'title' ? 0 : race.player.speed / POD.cruiseSpeed);
   particles.update(dt);
-  world.pickup.update(clock);
+  for (const pickup of world.pickups) pickup.update(clock);
   if (mode === 'race') updateHud();
 
   const p = race.player;

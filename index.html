@@ -26,10 +26,11 @@
       <div id="hud" class="hidden">
         <div class="hud-pos"><span id="pos">1</span><sup id="pos-suffix">st</sup><small>/4</small></div>
         <div class="hud-progress">
-          <div class="track-bar" id="progress"><div class="finish-flag"></div><div class="boost-mark hidden" id="boost-mark"></div></div>
+          <div class="track-bar" id="progress"><div class="finish-flag"></div><div class="shortcut-mark hidden" id="shortcut-mark"></div><div class="boost-mark hidden" id="boost-mark"></div></div>
         </div>
         <div class="hud-time"><span id="time">0:00.0</span><small>/ 1:30</small></div>
         <div id="stun-badge" class="hidden">STUNNED</div>
+        <div id="shortcut-badge" class="hidden">SHORTCUT</div>
       </div>
 
       <!-- Single-use boost: empty until the pickup is collected -->
@@ -53,6 +54,7 @@
           <p class="hint touch-only">Hold the <b>left</b> or <b>right</b> side of the screen to steer.</p>
           <p class="hint">Rocks stun you. Walls slow you. Only first place wins.</p>
           <p class="hint">Thread the gap to grab the <b>boost cell</b> after halfway, then tap <b>⚡</b> to use it.</p>
+          <p class="hint">Follow the <b>green arrows</b> through the canyon wall for a risky shortcut with a bonus boost cell.</p>
           <button id="start" class="cta">Tap to race</button>
           <p class="best" id="best-title"></p>
         </div>

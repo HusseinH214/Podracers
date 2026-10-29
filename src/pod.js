@@ -1,4 +1,4 @@
-import { POD, WALL, STUN, BOOST } from './config.js';
+import { POD, WALL, STUN, BOOST, SHORTCUT } from './config.js';
 
 // A pod is two numbers: distance along the track (s) and sideways offset (x).
 // Speed always moves it forward; steering only changes sideways velocity, so a
@@ -30,19 +30,24 @@ export class Pod {
     this.finishTime = null;
     this.stunCount = 0;
     this.warped = false; // gone from the track after the finish outro
-    this.hasBoost = false; // holding an unused boost
+    this.boosts = 0; // unused boosts held (the shortcut has a second cell)
     this.boostUsed = false;
     this.boost = 0; // seconds of boost left
+    this.inShortcut = false; // in the shortcut tunnel (player only)
   }
 
   get boosting() {
     return this.boost > 0;
   }
 
-  /** Fire the held boost. It also shakes off a stun, so it works as a crash recovery. */
+  get hasBoost() {
+    return this.boosts > 0;
+  }
+
+  /** Fire a held boost. It also shakes off a stun, so it works as a crash recovery. */
   activateBoost() {
     if (!this.hasBoost) return false;
-    this.hasBoost = false;
+    this.boosts--;
     this.boostUsed = true;
     this.boost = BOOST.duration;
     this.stun = 0;
@@ -108,15 +113,27 @@ export class Pod {
       this.speed = Math.max(top, this.speed - POD.accel * 0.5 * dt);
     }
 
-    this.s += this.speed * dt;
+    // The shortcut cuts the corner, so progress counts faster inside it.
+    this.s += this.speed * dt * (this.inShortcut ? SHORTCUT.progressMult : 1);
     this.x += this.vx * dt;
 
     // Walls: clamp, bounce a little, scrape speed. Never a stun.
     const lim = track.limitAt(this.s);
+    let lo = -lim;
+    let hi = lim;
+    let guided = 0;
+    const bounds = this.isPlayer ? track.shortcutBounds(this.s, this.x) : null;
+    if (bounds) ({ lo, hi, guided } = bounds);
+    this.inShortcut = !!bounds?.inside;
     let event = null;
-    const side = this.x > lim ? 1 : this.x < -lim ? -1 : 0;
-    if (side !== 0) {
-      this.x = side * lim;
+    let side = this.x > hi ? 1 : this.x < lo ? -1 : 0;
+    if (side !== 0 && side === guided) {
+      // The shortcut's exit wall folding back in: slide along it, no scrape.
+      this.x = side > 0 ? hi : lo;
+      if (Math.sign(this.vx) === side) this.vx = 0;
+      side = 0;
+    } else if (side !== 0) {
+      this.x = side > 0 ? hi : lo;
       if (Math.sign(this.vx) === side) {
         const impact = Math.abs(this.vx);
         if (impact > 4 && this.wallContact === 0) event = 'wall';

@@ -35,16 +35,26 @@ Desktop controls are the arrow keys or A / D to steer, and Space (or W / ↑) to
 Crashing into a rock costs about **90 m** (≈1.5 s), which usually decides the race. To give the player a way back:
 
 - **One pickup per race, player only.** It sits in the tightest optional gap between two obstacles between 50% and 75% of the course. Today that is a 2.2 m slot between pillars at 51%, next to a wider safe route, with a light beam above it and a cyan tick on the progress bar.
-- **Use it whenever you like** with the ⚡ button above the right arrow (or Space). It's dim until collected, glows when ready, and fades once used.
+- **Use it whenever you like** with the ⚡ button above the right arrow (or Space). It's dim until collected, glows when ready, and fades once used. The shortcut has a second cell (see below), so you can hold two; the button shows a **2** badge when you do.
 - **Strength:** top speed ×1.35 for 3 s with a quick kick. It's worth **≈88 m, about one crash**. It also clears a stun if you use it right after crashing, and shields you from rocks while it's active, because rows are only spaced to be dodgeable at normal speed.
 - **Effect:** a sloppy driver who saves it for after a crash goes from about 33% to 64% wins, with finish times close to a clean run. Tune it in `BOOST` in `src/config.js`.
+
+## Shortcut
+
+One optional, **player-only** shortcut per race: a slot canyon behind a rock ridge on the inside of the sharpest bend between 28% and 47% of the course (today that's 30–38%, on the left wall).
+
+- **Finding it:** green chevrons on the floor point at a gap in the canyon wall, a green marker sits on the ridge prow, and a green band on the progress bar shows where the shortcut is. "SHORTCUT" appears while you're inside.
+- **Committing:** steer through the gap before the ridge starts. Hitting the prow head-on is a crash, and once you're past it you can't switch sides until the exit.
+- **Payoff vs. risk:** progress counts ×1.25 inside (it cuts the corner), worth **≈0.7 s** on a clean run. Three pillars alternate between the ridge and the outer wall, and each one blocks the middle, so you have to weave. Driving straight down the middle costs two crashes (≈2.5 s net loss).
+- **Bonus boost cell:** a second boost cell sits on the open side of the middle pillar, 8 m before it, so weaving cleanly collects it. Its beam shows over the ridge as a lure. A clean run through the tunnel that uses this boost finishes in **69.7 s instead of 71.9 s**, and a clean driver wins 200 of 200 races instead of 155.
+- **Isolation:** the main track, its obstacle rows, the boost pickup and every bot behave exactly as before (`npm run sim` output is unchanged apart from the obstacle count). Tune it in `SHORTCUT` in `src/config.js`.
 
 ## Code map
 
 | File | What it does |
 |---|---|
 | `src/config.js` | **Every tunable number** (speeds, stun, bots, rubber-banding, camera) |
-| `src/track.js` | Course curve, width profile, and obstacle placement with an in-code reachable-gap check |
+| `src/track.js` | Course curve, width profile, obstacle placement with an in-code reachable-gap check, and the shortcut tunnel |
 | `src/pod.js` | Shared pod model (distance along the track + sideways offset), walls, and swept collision |
 | `src/bot.js` | Bot driving: look-ahead, gap choice, mistakes, Bully behaviour, avoiding other pods |
 | `src/race.js` | Fixed-step race simulation: countdown, collisions, contacts, rubber-banding, finish, ranking |

@@ -60,6 +60,28 @@ export const BOOST = {
   // dodgeable at normal top speed, so boosting into one would be unfair.
 };
 
+// Player-only, optional shortcut: a gap in the canyon wall on the inside of a
+// bend opens into a narrow slot canyon behind a rock ridge. It's tight and has
+// its own pillars, but progress counts faster inside because it cuts the
+// corner. Worth ~0.8 s clean; a pillar hit costs ~1.5 s. See README.
+export const SHORTCUT = {
+  from: 0.28, // placed on the sharpest bend between these fractions of the course
+  to: 0.47,
+  mouth: 45, // metres of open canyon wall to steer through before the ridge starts...
+  open: 15, // ...the first part of which is the wall swinging out
+  length: 240, // ridge length (the tunnel proper)
+  exit: 60, // metres for the tunnel's outer wall to fold back into the canyon
+  ridge: 2.6, // thickness of the rock ridge between canyon and tunnel
+  width: 6.4, // tunnel floor width (a pod is 2.4 m wide)
+  progressMult: 1.25, // progress along the course counts this much faster inside
+  pillars: [0.3, 0.55, 0.8], // pillar spots along the tunnel, alternating ridge side / outer wall
+  pillarSize: 1.1, // pillar half-width
+  pillarInset: 1.8, // pillar centre from its wall: each one blocks the middle, so you must weave
+  boostAtPillar: 1, // a bonus boost cell sits on the open side of this pillar...
+  boostLead: 8, // ...this many metres before it...
+  boostInset: 2, // ...with its centre this far from the opposite wall
+};
+
 export const CONTACT = {
   push: 9, // sideways speed given to each pod on contact
   speedFactor: 0.96, // both pods lose a little speed

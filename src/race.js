@@ -44,7 +44,7 @@ export class Race {
     this.result = null;
     this.contactCooldown = new Map();
     this.ghostPairs = new Set();
-    this.pickupTaken = false;
+    this.pickupsTaken = this.track.pickups.map(() => false);
     this.events.length = 0;
     this.lastTick = Math.ceil(this.countdown) + 1;
   }
@@ -99,8 +99,10 @@ export class Race {
     const steers = this.drivers.map((d) => (d.pod.warped ? 0 : d.decide(this, DT)));
 
     if (!this.player.warped) {
+      const wasInShortcut = this.player.inShortcut;
       this.#movePod(this.player, steerP, 1);
       this.#checkPickup();
+      if (this.player.inShortcut && !wasInShortcut) this.emit('shortcut', { pod: this.player });
     }
     this.bots.forEach((pod, i) => {
       if (!pod.warped) this.#movePod(pod, steers[i], this.#rubberBand(pod));
@@ -133,17 +135,18 @@ export class Race {
     }
   }
 
-  // The player collects the boost by passing through it (swept along s, so no frame skips it).
+  // The player collects a boost by passing through it (swept along s, so no frame skips it).
   #checkPickup() {
-    const pick = this.track.boostPickup;
     const p = this.player;
-    if (!pick || this.pickupTaken || p.finished || p.prevS > pick.s || p.s < pick.s) return;
-    const k = p.s > p.prevS ? (pick.s - p.prevS) / (p.s - p.prevS) : 1;
-    const x = p.prevX + (p.x - p.prevX) * k;
-    if (Math.abs(x - pick.x) > BOOST.pickupRadius) return;
-    this.pickupTaken = true;
-    p.hasBoost = true;
-    this.emit('pickup', { pod: p });
+    this.track.pickups.forEach((pick, index) => {
+      if (this.pickupsTaken[index] || p.finished || p.prevS > pick.s || p.s < pick.s) return;
+      const k = p.s > p.prevS ? (pick.s - p.prevS) / (p.s - p.prevS) : 1;
+      const x = p.prevX + (p.x - p.prevX) * k;
+      if (Math.abs(x - pick.x) > BOOST.pickupRadius) return;
+      this.pickupsTaken[index] = true;
+      p.boosts++;
+      this.emit('pickup', { pod: p, index });
+    });
   }
 
   // Shove a stunned pod out of the obstacle sideways so it never drives through rock.

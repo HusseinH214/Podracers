@@ -1,5 +1,5 @@
 import { CatmullRomCurve3, Vector3 } from 'three';
-import { POD, RACE, BOTS, RUBBER_BAND, BOOST } from './config.js';
+import { POD, RACE, BOTS, RUBBER_BAND, BOOST, SHORTCUT } from './config.js';
 import { makeRng } from './rng.js';
 
 const SAMPLE_STEP = 1; // metres between precomputed track frames
@@ -30,6 +30,7 @@ export class Track {
     this.#sample();
     this.#placeObstacles();
     this.#placeBoost();
+    this.#placeShortcut();
   }
 
   // ---- geometry -----------------------------------------------------------
@@ -130,6 +131,40 @@ export class Track {
   /** Sideways limit for a pod's centre. */
   limitAt(s) {
     return this.halfWidthAt(s) - POD.halfWidth;
+  }
+
+  /** Canyon wall offset on one side (as |x|): the half-width, opened out along the shortcut. */
+  wallAt(s, side) {
+    const hw = this.halfWidthAt(s);
+    const sc = this.shortcut;
+    if (!sc || side !== sc.side || s <= sc.sIn || s >= sc.sEnd) return hw;
+    const open =
+      s < sc.sOut ? smooth01((s - sc.sIn) / SHORTCUT.open) : 1 - smooth01((s - sc.sOut) / SHORTCUT.exit);
+    return hw + (SHORTCUT.ridge + SHORTCUT.width) * open;
+  }
+
+  /**
+   * Sideways limits for the player's pod centre near the shortcut, or null away
+   * from it. `inside` is true in the tunnel proper. `guided` is the side whose
+   * wall folds back in at the exit, which pods slide along instead of scraping.
+   */
+  shortcutBounds(s, x) {
+    const sc = this.shortcut;
+    if (!sc || s < sc.sIn || s > sc.sEnd) return null;
+    const hw = this.halfWidthAt(s);
+    const lim = hw - POD.halfWidth;
+    const u = sc.side * x; // sideways offset measured toward the tunnel
+    let lo = -lim;
+    let hi = this.wallAt(s, sc.side) - POD.halfWidth;
+    let inside = false;
+    if (s >= sc.sNose && s <= sc.sOut) {
+      // The ridge splits canyon and tunnel: stay on whichever side you're on.
+      inside = u > hw + SHORTCUT.ridge / 2;
+      if (inside) lo = hw + SHORTCUT.ridge + POD.halfWidth;
+      else hi = lim;
+    }
+    const guided = s > sc.sOut ? sc.side : 0;
+    return sc.side > 0 ? { lo, hi, inside, guided } : { lo: -hi, hi: -lo, inside, guided };
   }
 
   // ---- obstacles ----------------------------------------------------------
@@ -303,6 +338,80 @@ export class Track {
       }
     }
     this.boostPickup = best ?? fallback;
+    // Every boost cell on the course; the shortcut adds its own.
+    this.pickups = this.boostPickup ? [this.boostPickup] : [];
+  }
+
+  /**
+   * The shortcut tunnel goes on the inside of the sharpest bend in its stretch,
+   * where nothing crowds that canyon wall at the entrance or the exit, and away
+   * from the boost pickup. Main-track rows are left exactly as they are.
+   */
+  #placeShortcut() {
+    const { mouth, length, exit, ridge, width } = SHORTCUT;
+    const spanEnd = this.finishS * SHORTCUT.to;
+    let best = null;
+    for (let sIn = this.finishS * SHORTCUT.from; sIn + mouth + length + exit <= spanEnd; sIn += 5) {
+      const sNose = sIn + mouth;
+      const sOut = sNose + length;
+      const sEnd = sOut + exit;
+      let bend = 0;
+      for (let s = sNose; s <= sOut; s += 10) bend += this.#curvatureAt(s);
+      const side = bend < 0 ? -1 : 1;
+      const pick = this.boostPickup;
+      if (pick && pick.s > sIn - 60 && pick.s < sEnd + 60) continue;
+      if (this.#crowdsWall(side, sIn - 25, sNose + 5) || this.#crowdsWall(side, sOut - 10, sEnd + 20)) continue;
+      if (!best || Math.abs(bend) > best.bend) best = { side, sIn, sNose, sOut, sEnd, bend: Math.abs(bend) };
+    }
+    this.shortcut = best;
+    if (!best) return;
+
+    // Ridge nose: hitting it head-on is a crash like any rock (it is never drawn
+    // as an obstacle; the ridge mesh covers it).
+    const hw = this.halfWidthAt(best.sNose);
+    this.obstacles.push({
+      kind: 'ridge',
+      s: best.sNose + 1.5,
+      x: best.side * (hw + ridge / 2),
+      hw: ridge / 2,
+      hl: 1.5,
+      h: 10,
+      seed: 0.5,
+    });
+    // Pillars alternate between the ridge side and the outer wall: a slalom.
+    const { pillarSize: size, pillarInset: inset } = SHORTCUT;
+    SHORTCUT.pillars.forEach((k, i) => {
+      const s = best.sNose + length * k;
+      const inner = this.halfWidthAt(s) + ridge;
+      const u = i % 2 === 0 ? inner + inset : inner + width - inset;
+      this.obstacles.push({ kind: 'pillar', s, x: best.side * u, hw: size, hl: size, h: 13, seed: 0.3 + i * 0.2 });
+    });
+    this.obstacles.sort((a, b) => a.s - b.s);
+
+    // Bonus boost cell just before the middle pillar, on the side you weave
+    // through, so a clean slalom collects it.
+    const k = SHORTCUT.pillars[SHORTCUT.boostAtPillar];
+    const s = best.sNose + length * k - SHORTCUT.boostLead;
+    const inner = this.halfWidthAt(s) + ridge;
+    const u = SHORTCUT.boostAtPillar % 2 === 0 ? inner + width - SHORTCUT.boostInset : inner + SHORTCUT.boostInset;
+    this.pickups.push({ s, x: best.side * u, shortcut: true });
+  }
+
+  /** Signed curvature: positive when the track bends toward +x (right). */
+  #curvatureAt(s) {
+    const a = this.tangentAt(s - 5);
+    const b = this.tangentAt(s + 5);
+    return b.sub(a).dot(this.rightAt(s)) / 10;
+  }
+
+  /** True if any obstacle between s0 and s1 comes within a pod's width of one canyon wall. */
+  #crowdsWall(side, s0, s1) {
+    return this.obstacles.some(
+      (o) =>
+        o.s + o.hl >= s0 &&
+        o.s - o.hl <= s1 &&
+        side * o.x + o.hw + POD.halfWidth > this.limitAt(o.s) - 1,
+    );
   }
 
   /** Index of the first obstacle with s >= value (binary search). */
@@ -336,6 +445,11 @@ function everyPointCanReach(fromGaps, toGaps, reach) {
     }
   }
   return true;
+}
+
+function smooth01(t) {
+  const k = Math.min(1, Math.max(0, t));
+  return k * k * (3 - 2 * k);
 }
 
 function lerp(a, b, t) {

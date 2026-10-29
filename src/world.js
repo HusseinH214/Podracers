@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { makeRng } from './rng.js';
-import { POD } from './config.js';
+import { POD, SHORTCUT } from './config.js';
 
 const TMP = new THREE.Vector3();
 const TAN = new THREE.Vector3();
@@ -54,20 +54,112 @@ export function buildWorld(scene, track) {
   const gantry = buildGantry(track);
   scene.add(gantry.group);
   scene.add(buildFinishArch(track));
-  const pickup = buildBoostPickup(track);
-  scene.add(pickup.group);
+  const pickups = track.pickups.map((p) => buildBoostPickup(track, p));
+  for (const pickup of pickups) scene.add(pickup.group);
+  scene.add(buildShortcut(track));
 
-  return { sky, gantry, pickup };
+  return { sky, gantry, pickups };
+}
+
+// ---- shortcut ----------------------------------------------------------------
+
+export const SHORTCUT_COLOR = 0xb6ff5c;
+
+/** Rock ridge between canyon and tunnel, plus glowing chevrons that point into the mouth. */
+function buildShortcut(track) {
+  const group = new THREE.Group();
+  const sc = track.shortcut;
+  if (!sc) return group;
+  const { ridge } = SHORTCUT;
+
+  // Ridge: an extruded cross-section that tapers to a prow at both ends.
+  const step = 3;
+  const rows = Math.ceil((sc.sOut - sc.sNose) / step) + 1;
+  const cols = 4;
+  const positions = new Float32Array(rows * cols * 3);
+  const colors = new Float32Array(rows * cols * 3);
+  const rockA = new THREE.Color(PALETTE.rockA);
+  const rockB = new THREE.Color(PALETTE.rockB);
+  for (let j = 0; j < rows; j++) {
+    const s = Math.min(sc.sOut, sc.sNose + j * step);
+    const taper = Math.min(1, (s - sc.sNose) / 6, (sc.sOut - s) / 6);
+    const mid = track.halfWidthAt(s) + ridge / 2;
+    const half = (ridge / 2) * (0.25 + 0.75 * taper);
+    const h = (12 + noise1(s, 4) * 2.5) * (0.45 + 0.55 * taper);
+    const section = [
+      [mid - half, 0],
+      [mid - half * 0.55, h],
+      [mid + half * 0.55, h],
+      [mid + half, 0],
+    ];
+    section.forEach(([u, y], c) => {
+      track.pointAt(s, sc.side * u, TMP, y);
+      const k = (j * cols + c) * 3;
+      positions.set([TMP.x, TMP.y, TMP.z], k);
+      COLOR.copy(rockA).lerp(rockB, Math.sin(y * 0.55 + noise1(s, 9) * 2) * 0.5 + 0.5);
+      colors.set([COLOR.r, COLOR.g, COLOR.b], k);
+    });
+  }
+  const index = [];
+  for (let j = 0; j < rows - 1; j++) {
+    for (let c = 0; c < cols - 1; c++) {
+      const a = j * cols + c;
+      index.push(a, a + 1, a + cols, a + 1, a + cols + 1, a + cols);
+    }
+  }
+  // End caps.
+  for (const j of [0, rows - 1]) {
+    const a = j * cols;
+    index.push(a, a + 1, a + 2, a, a + 2, a + 3);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  geo.setIndex(index);
+  geo.computeVertexNormals();
+  group.add(
+    new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, side: THREE.DoubleSide })),
+  );
+
+  // Glowing cap on the prow so the split reads from a distance.
+  const cap = new THREE.Mesh(
+    new THREE.OctahedronGeometry(0.6, 0),
+    new THREE.MeshBasicMaterial({ color: SHORTCUT_COLOR, fog: false }),
+  );
+  track.pointAt(sc.sNose + 1, sc.side * (track.halfWidthAt(sc.sNose) + ridge / 2), cap.position, 7);
+  group.add(cap);
+
+  // Floor chevrons leading from the canyon wall into the mouth.
+  const shape = new THREE.Shape();
+  shape.moveTo(-1.1, -0.6);
+  shape.lineTo(0, 0.6);
+  shape.lineTo(1.1, -0.6);
+  shape.lineTo(1.1, -0.1);
+  shape.lineTo(0, 1.1);
+  shape.lineTo(-1.1, -0.1);
+  shape.closePath();
+  const chevGeo = new THREE.ShapeGeometry(shape);
+  chevGeo.rotateX(-Math.PI / 2);
+  const chevMat = new THREE.MeshBasicMaterial({ color: SHORTCUT_COLOR, transparent: true, opacity: 0.85, depthWrite: false });
+  for (let i = 0; i < 4; i++) {
+    const s = sc.sIn - 18 + i * 8;
+    const u = track.halfWidthAt(s) - 2.5 + i * 1.2;
+    const chev = new THREE.Mesh(chevGeo, chevMat);
+    track.pointAt(s, sc.side * u, chev.position, 0.15);
+    trackBasis(track, s, MAT4);
+    chev.quaternion.setFromRotationMatrix(MAT4);
+    chev.rotateY(-sc.side * 0.5); // point forward, angled toward the tunnel
+    group.add(chev);
+  }
+  return group;
 }
 
 // ---- boost pickup ------------------------------------------------------------
 
 export const BOOST_COLOR = 0x5ff0ff;
 
-function buildBoostPickup(track) {
+function buildBoostPickup(track, p) {
   const group = new THREE.Group();
-  const p = track.boostPickup;
-  if (!p) return { group, update() {}, setTaken() {} };
 
   const glow = { color: BOOST_COLOR, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending };
   const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.75, 0), new THREE.MeshBasicMaterial({ color: BOOST_COLOR }));
@@ -187,8 +279,9 @@ function buildCanyon(track) {
   for (let j = 0; j < rows; j++) {
     const s = start + j * step;
     const hw = track.halfWidthAt(Math.max(0, s));
-    const left = profile(-1, s, hw, j);
-    const right = profile(1, s, hw, j).reverse();
+    // Each wall separately: one opens out around the shortcut tunnel.
+    const left = profile(-1, s, track.wallAt(Math.max(0, s), -1), j);
+    const right = profile(1, s, track.wallAt(Math.max(0, s), 1), j).reverse();
     const floor = [-0.66, -0.33, 0, 0.33, 0.66].map((k) => [k * hw, 0]);
     // Floor marker stripes every 40 m give the eye something to track.
     const stripe = Math.floor(s / 20) % 2 === 0;
@@ -288,7 +381,7 @@ function buildObstacles(track) {
   const group = new THREE.Group();
   const mat = new THREE.MeshLambertMaterial({ flatShading: true });
   const byKind = { rock: [], pillar: [], wall: [] };
-  for (const o of track.obstacles) byKind[o.kind].push(o);
+  for (const o of track.obstacles) byKind[o.kind]?.push(o); // the ridge nose is drawn by buildShortcut
 
   const make = (geo, list, place) => {
     if (!list.length) return;
